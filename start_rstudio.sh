@@ -3,14 +3,16 @@
 rm -rf ~/.rstudio
 killall rsession 2>/dev/null
 
-source /opt/continuum/anaconda/bin/activate anaconda50_r
+# source /opt/continuum/anaconda/bin/activate anaconda44_r
+# same here only anaconda44_r for anaconda 5.4
+source /opt/continuum/anaconda/bin/activate anaconda44_r
 env | grep ^CONDA > ~/.Renviron
 echo PATH=$PATH >> ~/.Renviron
 echo session-default-working-dir=/opt/continuum/project > ~/.rsession.conf
 echo session-rprofile-on-resume-default=1 >> ~/.rsession.conf
 
 # Translate AE environment variables to Rstudio command-line arguments
-# --rsession-which-r /opt/continuum/anaconda/envs/anaconda50_r/bin/R \
+# --rsession-which-r /opt/continuum/anaconda/envs/anaconda44_r/bin/R \
 args=(/usr/lib/rstudio-server/bin/rserver \
       --rsession-config-file ~/.rsession.conf \
       --rsession-path /opt/continuum/scripts/rsession.sh \

@@ -127,6 +127,11 @@ if [ -s "/var/run/secrets/anaconda/platform-token" ]; then
     su anaconda -c "/opt/continuum/scripts/save-conda-token '${TOOL_CONDA_URL}' '${TOKEN}'"
 fi
 
+# Added @eden to fix missing ca certs in pods
+if [ -s /var/run/secrets/anaconda/ca-chain.pem ]; then 
+   cp  /var/run/secrets/anaconda/ca-chain.pem  /etc/ssl/certs/
+fi
+
 if [ $TOOL_PACKAGE == 'anaconda-platform-sync' ]; then
     start_sync
 elif [[ $TOOL_PACKAGE =~ dummy. ]]; then

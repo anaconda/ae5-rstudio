@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # This environment must have an R installation
-CONDA_FALLBACK_ENV=anaconda50_r
+# CONDA_FALLBACK_ENV=anaconda44_r
+# need to find out is this is 5.4 or 5.3 (5.4 does not have anaconda44_r only anaconda44_r)
+CONDA_FALLBACK_ENV=anaconda44_r
 
 OC=/opt/continuum
 OCA=$OC/anaconda

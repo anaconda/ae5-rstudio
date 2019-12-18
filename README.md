@@ -84,6 +84,10 @@ the new image will be minimal.
    By design, the name of the image is identical to the original, but with
    an `-rstudio` suffix appended to the tag. This simplifies the
    deployment editing steps below.
+
+  Note: For this to work on AE 5.4GA (5.4.0-40.gbd07dc6fb) the fallback environment needs to change from anaconda50_r to anaconda44_r
+  ``` pushd ae5-rstudio && sed -i s/anaconda50_r/anaconda44_r/ *.sh && popd```
+     
 8. Exit the Gravity environment.
 
 ### 2. Modify the deployment to point to the new image

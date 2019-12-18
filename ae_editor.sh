@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 # identify valid AE versions and matching R environments
-# allow removing existing container from registry -- does docker rmi removes from registry or local docker engine only? 
-# allow quick build of existing editor containers and add support for other editors
-# create uninstall for each update
-# add, list and remove editor options to ae5 - hacks only
-# has to be done in /opt/anaconda so it can be seen from gravity
+# check that we are really removing the image from the registry not only from docker engine -- does docker rmi removes from registry or local docker engine only? 
 
 # this is the cloned repo - i.e. 
 # git clone https://github.com/Anaconda-Platform/ae5-rstudio.git
+# I used this script from ae5-rstudio/.. (parent) did not test from local folder and it will probably not work..
+
 export SRC="ae5-rstudio"
 export  pgpod=$(kubectl get pods | awk '/postgres/  { print $1 }')
 export  pcmd=$(kubectl get pods | awk '/postgres/ { print "kubectl exec -it "$1"  -- /usr/bin/psql -qt -U postgres "}')
