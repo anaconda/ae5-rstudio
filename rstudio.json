@@ -1,10 +1,6 @@
 {
-    "workspace": {
-        "tools": {
-            "rstudio": {
-                "label": "RStudio",
-                "packages": ["rstudio"]
-            }
-        }
-    }
+ "rstudio": {
+   "label": "RStudio",
+   "packages": ["rstudio"]
+  }
 }
