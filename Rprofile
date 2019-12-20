@@ -21,9 +21,9 @@
       counter = 0
       cat('Waiting...')
       while (!file.exists(fpath)) {
-          Sys.sleep(0.1)
+          Sys.sleep(0.2)
           counter = counter + 1
-          if (counter == 30) {
+          if (counter == 15) {
               counter = 0
               cat('.')
               flush.console()
@@ -35,6 +35,11 @@
         message('Restarting R...')
         .rs.api.restartSession()
       }
+    } else if (Sys.getenv('CONDA_PROJECT_ERR') == 'yes') {
+      message('ERROR: an unexpected error prevented the startup script')
+      message('from determining the desired conda environment. This is')
+      message('typically caused by corruption in anaconda-project.yml.')
+      message('Consult the file /opt/continuum/prepare.log for details.')
     } else if (current_env != desired_env) {
       message('Requested conda environment: ', desired_env)
       message('ERROR: The project preparation stage is complete, but the')
