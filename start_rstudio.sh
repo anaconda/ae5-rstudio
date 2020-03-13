@@ -3,11 +3,19 @@
 rm -rf ~/.rstudio
 killall rsession 2>/dev/null
 
-# source /opt/continuum/anaconda/bin/activate anaconda44_r
-# same here only anaconda44_r for anaconda 5.4
-source /opt/continuum/anaconda/bin/activate anaconda44_r
+if [[ -d /opt/continuum/anaconda/envs/anaconda50_r ]]
+then
+  source /opt/continuum/anaconda/bin/activate anaconda44_r
+elif [[ -d /opt/continuum/anaconda/envs/anaconda44_r ]]
+then
+  source /opt/continuum/anaconda/bin/activate anaconda44_r
+else
+  echo Rstudio will fail to start witohut R, consider looking for R in any environment, and if missing install a new ephemeral env with R...
+fi
+
 env | grep ^CONDA > ~/.Renviron
 echo PATH=$PATH >> ~/.Renviron
+env | sed -nE 's@^(CONDA[^=]*)=(.*)@\1="\2"@p' > ~/.Renviron
 echo session-default-working-dir=/opt/continuum/project > ~/.rsession.conf
 echo session-rprofile-on-resume-default=1 >> ~/.rsession.conf
 

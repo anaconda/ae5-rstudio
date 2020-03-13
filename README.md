@@ -34,12 +34,11 @@ succession with notification delivered to users.
      Once the workspace pod is fully operational again, and until
      step 3 is completed, users should discern no functional
      difference in operation.
-3. _*Update the Postgres database to include an RStudio option.*_
+3. _*Modify the UI configuration to include an RStudio option.*_
    - Time to complete: <5 minutes
    - User disruption: none for existing sessions, deployments, or jobs.
-     Once the database is updated, the RStudio option will appear for
-     new and/or restarted sessions. Some users may need to refresh their
-     browsers to pick up the new option.
+     Because the UI pod is restarted, users may experience a brief
+     disruption in UI responsiveness for 1-2 minutes.
 
 ### Step 1. Build the Docker image
 
@@ -57,9 +56,14 @@ the new image will be minimal.
    ```
    https://download2.rstudio.org/server/centos6/x86_64/rstudio-server-rhel-1.2.1335-x86_64.rpm
    ```
-   In a firewalled/airgapped environment, this may not be possible. If this is
-   the case, download this file manually and deliver it to the same directory as
-   step 1, alongside the `Dockerfile` itself.
+   Furthermore, for AE 5.4.x _only_, an additional RPM is needed:
+   ```
+   https://rpmfind.net/linux/centos/7.7.1908/os/x86_64/Packages/psmisc-22.20-16.el7.x86_64.rpm
+   ```
+   In a firewalled/airgapped environment, it may not be possible to download these
+   during the build process. If this is the case, download the files manually and deliver
+   them to the same directory as step 1, alongside the `Dockerfile` itself. Again, for
+   AE 5.3.x, the `psmisc` RPM file is not needed.
 5. Enter the Gravity environment, and change to the same directory.
    ```
    sudo gravity enter
@@ -115,52 +119,96 @@ that the following files/directories are present:
 - `/opt/continuum/scripts/rsession.sh`
 - `/usr/lib/rstudio-server/`
 
-### 3. Update the Postgres database to include the RStudio option
+### 3. Update the UI configuration to incude the RStudio option
 
-The editor drop-down is fed from a single cell in an underlying
-postgres database, which is itself running as a Kubernetes pod.
-1. Determine the exact name of the Postgres pod.
+The final step is to add RStudio to the editor selection list presented
+by the UI.
+1. Launch a web browser, log into the Op Center, and navigate to
+   the "Configuration" tab.
+2. Make sure that the "Config maps" dropdown has selected the
+   `anaconda-enterprirse-anaconda-platform.yml` option. This should
+   be the default. You will see a single tab titled `anaconda-platform.yml`;
+   this is file to be edited.
+3. Search for the `anaconda-workspace:` section of this file. The quickest way to do so
+   is to focus the text editor and search for `anaconda-workspace:` (including the colon).
+   The default values in this section will look like this, but note that the value
+   of the `url:` will differ:
+   ```   
+       anaconda-workspace:
+         workspace:
+           icon: fa-anaconda
+           label: workspace
+           url: https://aip.anaconda.com/platform/workspace/api/v1
+           options:
+             workspace:
+               tools:
+                 notebook:
+                   default: true
+                   label: Jupyter Notebook
+                   packages: [notebook]
+                 jupyterlab:
+                   label: JupyterLab
+                   packages: [jupyterlab]
+                 anaconda-platform-sync:
+                   label: Anaconda Project Sync
+                   packages: [anaconda-platform-sync]
    ```
-   POSTGRES=$(kubectl get pods | grep -e -postgres- | cut -f 1 -d ' ')
-   echo $POSTGRES
+4. Add an RStudio section, so that the section looks as follows.
+   _It is essential that exact indentation, with spaces, be preserved._
+   Again, the value of the `url:` line will be different
+   in your installation; do not modify it.
+   ```   
+       anaconda-workspace:
+         workspace:
+           icon: fa-anaconda
+           label: workspace
+           url: https://aip.anaconda.com/platform/workspace/api/v1
+           options:
+             workspace:
+               tools:
+                 notebook:
+                   default: true
+                   label: Jupyter Notebook
+                   packages: [notebook]
+                 jupyterlab:
+                   label: JupyterLab
+                   packages: [jupyterlab]
+                 rstudio:
+                   label: RStudio
+                   packages: [rstudio]
+                 anaconda-platform-sync:
+                   label: Anaconda Project Sync
+                   packages: [anaconda-platform-sync]
    ```
-2. Copy `workspace-new.json` into the container and launch a shell.
+5. Once you have verified the correct formatting, click the "Apply" button.
+6. Return to the master node and restart the UI pod.
    ```
-   kubectl cp workspace-new.json $POSTGRES:/
-   kubectl exec -it $POSTGRES /bin/sh
+   kubectl get pods | grep anaconda-enterprise-ap-ui | \
+       cut -f 1 -d ' ' | xargs kubectl delete pods
    ```
-   At this point, you are running a shell inside the Postgres pod,
-   and steps 3-6 will be performed inside that pod.
-3. Examine the current value of the editor list.
-   ```
-   psql -U postgres -d anaconda_ui -c \
-       "select options from integration where name='workspace';"
-   ```
-   The contents should closely resemble the contents of the file `workspace-orig.json`.
-4. Modify the editor list using the contents of the file `workspace-new.json`.
-   ```
-   VALUE=$(cat workspace-new.json)
-   psql -U postgres -d anaconda_ui -c \
-       "update integration set options='$VALUE' where name='workspace';"
-   ```
-   You should expect an output of `UPDATE 1`.
-5. Re-run Step 3 and confirm that RStudio is indeed present
-   in the editor list.
-6. Type `exit` to leave the Postgres container shell.
+   The UI pod should take less than a minute to refresh.
 
-Once you have successfully completed Step 3, all new attempts to use the
-drop-down editor list will see RStudio present.
+There may be minor disruptions in UI responsiveness during this time, and
+some users may need to refresh their browsers, although this should not be
+necessary for views of running sessions or deployments. Once the refresh
+is complete, the RStudio editor will be present in the Default Editor
+drop-down on the project settings page.
+
+To help clarify the desired result in this step, we have attached below
+a screenshot of the Op Center for a typical cluster immediately
+after Step 5 is completed.
+
+![screenshot](screenshot.png)
 
 ## Uninstallation
 
 If it is necessary to remove RStudio, we effectively reverse the steps above.
 
-1. _Update the Postgres database to remove the RStudio option._
+1. _*Modify the UI configuration to remove the RStudio option.*_
    - Time to complete: <5 minutes
    - User disruption: none for existing sessions, deployments, or jobs.
-     Once the database is updated, the RStudio option will no longer
-     appear for new and/or restarted sessions. Some users may need to
-     refresh their browsers for the RStudio option to disappear.
+     Because the UI pod is restarted, users may experience a brief
+     disruption in UI responsiveness for 1-2 minutes.
 2. _Modify the deployment to point to the original image._
    - Time to complete: <5 minutes
    - User disruption: none for existing sessions, deployments, or jobs.
@@ -178,36 +226,53 @@ If it is necessary to remove RStudio, we effectively reverse the steps above.
    - User disruption: none, unless there is a need to force a session
      stoppage to remove the image.
 
-### 1. Update the Postgres database to remove the RStudio option
+### 1. Modify the UI configuration to remove the RStudio option
 
-1. Determine the exact name of the Postgres pod.
+The first step in uninstallation is to remove the RStudio option from the UI.
+1. Launch a web browser, log into the Op Center, and navigate to
+   the "Configuration" tab.
+2. Make sure that the "Config maps" dropdown has selected the
+   `anaconda-enterprirse-anaconda-platform.yml` option. This should
+   be the default. You will see a single tab titled `anaconda-platform.yml`;
+   this is file to be edited.
+3. Search for the three-line `rstudio:` section of this file, and remove it.
+   _It is essential that exact indentation, with spaces, be preserved._
+   The resulting `anaconda-workspace:` section should look something like this.
+   Again, the value of the `url:` line will be different in your installation;
+   do not modify it.
+   ```   
+       anaconda-workspace:
+         workspace:
+           icon: fa-anaconda
+           label: workspace
+           url: https://aip.anaconda.com/platform/workspace/api/v1
+           options:
+             workspace:
+               tools:
+                 notebook:
+                   default: true
+                   label: Jupyter Notebook
+                   packages: [notebook]
+                 jupyterlab:
+                   label: JupyterLab
+                   packages: [jupyterlab]
+                 anaconda-platform-sync:
+                   label: Anaconda Project Sync
+                   packages: [anaconda-platform-sync]
    ```
-   POSTGRES=$(kubectl get pods | grep -e -postgres- | cut -f 1 -d ' ')
-   echo $POSTGRES
+4. Once you have verified the correct formatting, click the "Apply" button.
+5. Log into the master node and restart the UI pod.
    ```
-2. Copy `workspace-orig.json` into the container and launch a shell.
+   kubectl get pods | grep anaconda-enterprise-ap-ui | \
+       cut -f 1 -d ' ' | xargs kubectl delete pods
    ```
-   kubectl cp workspace-orig.json $POSTGRES:/
-   kubectl exec -it $POSTGRES /bin/sh
-   ```
-   At this point, you are running a shell inside the Postgres pod,
-   and steps 3-5 will be run inside that pod.
-3. Modify the editor list using the contents of `workspace-new.json`.
-   ```
-   VALUE=$(cat workspace-orig.json)
-   echo $VALUE # and confirm it is not empty
-   psql -U postgres -d anaconda_ui -c \
-       "update integration set options='$VALUE' where name='workspace';"
-   ```
-   You should expect an output of `UPDATE 1`.
-4. Examine the new editor list to confirm that RStudio has been removed:
-   ```
-   psql -U postgres -d anaconda_ui -c \
-       "select options from integration where name='workspace';"
-   ```
-5. Type `exit` to leave the Postgres container shell.
+   The UI pod should take less than a minute to refresh.
 
-These changes should take effect once this step is complete:
+As before, there may be minor disruptions in UI responsiveness while the
+pod is being restarted. Some users may need to refresh their browsers,
+although this should not be necessary for views of running
+sessions or deployments. These changes should take effect
+once this step is complete:
 - All existing sessions, including those with RStudio, will continue
   to run without change.
 - The "Default Editor" drop-down on the project Settings page will
