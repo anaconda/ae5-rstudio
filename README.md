@@ -4,7 +4,7 @@ This repository allows AE5 customers to install RStudio and use it within
 AE5.5.  In order to ensure respect for RStudio Server's licensing terms,
 Anaconda does not provide the RStudio binary to customers; they must acquire
 it themselves. These instructions are intended to be followed by the customer
-and can be applied to AE 5.5 or later. 
+and can be applied to AE 5.5 or later.
 
 When successfully completed, RStudio will be made available as an editor
 selection in AE's dropdown menus alongside Jupyter, JupyterLab, and Zeppelin.
@@ -71,7 +71,7 @@ the new image will be minimal.
    ```
 5. Determine the name of the current editor image.
    ```
-   IMAGENAME=$(docker image ls | grep ae-editor | grep -v rstudio | awk '{print $1":"$2;}')
+   IMAGENAME=$(docker image ls | grep ae-editor | grep -v rstudio | grep 5.5 | awk '{print $1":"$2;}')
    echo $IMAGENAME
    ```
    Make sure this image name makes sense. It should look something like this:
@@ -81,9 +81,10 @@ the new image will be minimal.
    but the version number may be different.
 6. Build the new image and push it to the internal registry. Before we
    run the `docker build` command we need to set the `FROM` statement
-   to match the value of WORKSPACE above, hence the `sed` command. You
+   to match the value of IMAGENAME above, hence the `sed` command. You
    could also edit the Dockerfile by hand if you wish.
    ```
+   sed -i "s@^FROM .*@FROM $IMAGENAME@" Dockerfile
    docker build --build-arg IMAGENAME=$IMAGENAME -t $IMAGENAME-rstudio .
    docker push $IMAGENAME-rstudio
    ```
@@ -254,7 +255,7 @@ once this step is complete:
 - _Existing RStudio projects_ will continue to start with RStudio.
   The "Default Editor" field may appear blank, however.
 
-### 2. Revert the workspace deployment 
+### 2. Revert the workspace deployment
 
 1. Edit the deployment for the workspace container.
    ```
