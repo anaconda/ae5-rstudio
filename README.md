@@ -94,7 +94,7 @@ AE5 session. So to begin the process, we complete the following steps:
    storage manager user, typically `anaconda-enterprise`.
    This is the user that is given read-write access to the
    `/tools` volume.
-2. Download the project and save it to the machine
+2. Download the installer project and save it to the machine
    from which you are accessing AE5. A link is provided
    in the top section of this document.
 3. In a new browser window, log into AE5, and use the
@@ -329,7 +329,8 @@ Removing RStudio is a relatively simple process.
 3. Restart the UI pod:
 
    ```
-   kubectl get pods | grep ap-ui | cut -d ' ' -f 1 | xargs kubectl delete pods
+   kubectl get pods | grep ap-ui | \
+       cut -d ' ' -f 1 | xargs kubectl delete pods
    ```
 
 This removes RStudio as an editor option for new projects, but
@@ -412,9 +413,10 @@ First, create an archive of an existing installation:
 
 Now move this archive to a new system:
 
-1. Execute Step 1 of the standard installation instructions to
-   ensure that the `/tools` volume has been properly configured
-   and set to read-write.
+1. **5.5.1** Execute Step 1 of the standard installation
+   instructions to ensure that the `/tools` volume has been
+   properly configured and set to read-write.<br/>
+   **5.5.2+** Log in as the storage manager user.
 2. Launch any session, preferably using the JupterLab editor.
 3. Upload the archive `rstudio.tar.gz` into the project.
 4. Launch a terminal window.
@@ -428,5 +430,6 @@ Now move this archive to a new system:
    Steps 5 and 6 above to enable the RStudio option and verify its operation.
 9. Once verified, you may remove `rstudio.tar.gz` from the session
    as well as `/tools/rstudio.old`, if created.
-10. Execute Step 7 of the standard installation instructions to
-    ensure that the `/tools` volume is set back to read-only.
+10. **5.5.1** Execute Step 7 of the standard installation instructions
+    to ensure that the `/tools` volume is set back to read-only.<br/>
+    **5.5.2** Log out as the storage manager.
