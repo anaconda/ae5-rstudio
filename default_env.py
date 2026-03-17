@@ -1,6 +1,9 @@
 import os
 import sys
-import ruamel_yaml
+try:
+    import ruamel_yaml as yaml
+except ImportError:
+    import yaml
 from glob import glob
 from os.path import dirname, basename, join
 
@@ -37,7 +40,7 @@ for ebase in ENVS_DIRS:
 results = []
 try:
     with open(join(PROJECT_DIR, 'anaconda-project.yml'), 'r') as fp:
-        envs = ruamel_yaml.safe_load(fp).get('env_specs')
+        envs = yaml.safe_load(fp).get('env_specs')
     if not envs or 'default' in envs:
         results.append('default')
     results.extend(e for e in envs if e != 'default')
