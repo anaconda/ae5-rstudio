@@ -15,7 +15,10 @@ fi
 if [ -z "$TOOL_PROJECT_URL" ]; then
     echo "- Downloading both versions for airgap"
     needed="8 9"
-elif grep -q 'release 9' /etc/redhat-release; then
+elif grep -qE 'release (9|10)' /etc/redhat-release; then
+    # RHEL 10 ships OpenSSL 3 only (no libssl.so.1.1); RStudio has no rhel10
+    # build yet, so use the rhel9 RPM, which is linked against OpenSSL 3 and
+    # runs on UBI 10. (The rhel8 build needs OpenSSL 1.1 and crash-loops here.)
     echo "- Downloading RHEL9 version only"
     needed=9
 else

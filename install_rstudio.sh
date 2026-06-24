@@ -51,7 +51,10 @@ fi
 
 echo "- Install prefix: $RSTUDIO_PREFIX"
 
-if grep -q 'release 9' /etc/redhat-release; then
+# RHEL 10 (UBI 10) ships OpenSSL 3 only and has no rhel10 RStudio build; use
+# the rhel9 RPM, which links against OpenSSL 3 and runs on UBI 10. The rhel8
+# build needs OpenSSL 1.1 (libssl.so.1.1) and crash-loops on UBI 10.
+if grep -qE 'release (9|10)' /etc/redhat-release; then
     main_ver=9
 else
     main_ver=8
