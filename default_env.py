@@ -53,12 +53,11 @@ def _ordered_environment_set(pdir):
             _add(cspec.get('env_spec'))
         for ename in spec.get('env_specs', {}).keys():
             _add(ename)
-    except Exception:
     except Exception as exc:
         print('Could not parse pixi.toml/anaconda-project.yml.', file=sys.stderr)
     root = os.environ.get('CONDA_ROOT')
     if sys.prefix != root:
-        _add(sys.prefix)
+        _add(basename(sys.prefix))
     _add('base')
     return env_names
 
