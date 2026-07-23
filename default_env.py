@@ -43,7 +43,7 @@ try:
     from anaconda_project.project_info import publication_info
     spec = publication_info(PROJECT_DIR)
     results.extend(spec['env_specs'])
-except ImportError:
+except Exception:
     results.append('@ERROR@')
 
 desired_env = results[0]
