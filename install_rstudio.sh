@@ -124,7 +124,7 @@ echo "RStudio installation is complete."
 echo "Once you have verified the installation, feel free to"
 echo "shut down this session and delete the project."
 echo "+-----------------------+"
-r_envs=$(compgen -G '/opt/continuum/envs/*/conda-meta/r-base-*' '/opt/continuum/envs/*/conda-meta/r-base-*')
+r_envs=$(compgen -G '/opt/continuum/envs/*/bin/R' '/opt/continuum/envs/*/bin/R')
 if [ -z "$r_envs" ]; then
     echo "WARNING: There are currently no R environments installed in"
     echo "/opt/continuum/envs or /opt/continuum/anaconda/envs. RStudio"

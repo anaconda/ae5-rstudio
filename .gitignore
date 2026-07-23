@@ -22,8 +22,6 @@ heartbeat.
 /user
 !/user/
 
-README.pdf
-TOOLS.pdf
 node_modules/
 package-lock.json
 package.json
