@@ -1,4 +1,6 @@
 name: RStudio Installer
 description: A project for installing RStudio into AE5.
 env_specs:
-  anaconda50_r: {}
+  anaconda50_r:
+    - r-base
+    - r-irkernel
