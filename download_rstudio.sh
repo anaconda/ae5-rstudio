@@ -46,17 +46,15 @@ for arch in $arches; do for os_ver in $needed; do
     echo "- URL: $url"
     if ! curl -o $fname -L $url; then
        echo "- unexpected error with curl"
-       continue
+       exit 1
     elif grep -q NoSuchKey $fname; then
        echo "- bucket error downloading package"
        rm -f $fname
-       continue
-    fi
-    if [ ! -f $fname ]; then
+       exit 1
+    elif [ ! -f $fname ]; then
         echo "- ERROR: could not find package as expected. Please check URLs."
         exit -1
-    fi
-    if which rpm2cpio &>/dev/null; then
+    elif which rpm2cpio &>/dev/null; then
         echo "- Verifying $fname"
         if ! rpm2cpio $fname >/dev/null; then
             echo "- ERROR: $fname is not a valid RPM package. Please remove this file and re-download it."

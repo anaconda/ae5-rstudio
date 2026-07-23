@@ -68,8 +68,8 @@ fi
 
 dname=rs-rhel${v}-${arch}.rpm
 if [[ ! -f $dname && ! -f data/$dname ]]; then
-    echo "ERROR: one or more of the RStudio missing:"
-    echo "- $missing"
+    echo "ERROR: the required RStudio package is missing:"
+    echo "- $dname"
     echo "Please follow the directions in README.md to"
     echo "bring these binaries into the project."
     exit -1
@@ -124,8 +124,9 @@ echo "RStudio installation is complete."
 echo "Once you have verified the installation, feel free to"
 echo "shut down this session and delete the project."
 echo "+-----------------------+"
-r_envs=$(compgen -G '/opt/continuum/envs/*/bin/R' '/opt/continuum/envs/*/bin/R')
-if [ -z "$r_envs" ]; then
+r_env1=$(compgen -G '/opt/continuum/envs/*/bin/R')
+r_env2=$(compgen -G '/opt/continuum/anaconda/envs/*/bin/R')
+if [[ -z "$r_env1" && -z "$r_env2" ]]; then
     echo "WARNING: There are currently no R environments installed in"
     echo "/opt/continuum/envs or /opt/continuum/anaconda/envs. RStudio"
     echo "will not function without one such environment existing."
