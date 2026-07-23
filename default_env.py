@@ -38,14 +38,14 @@ for ebase in ENVS_DIRS:
     r_envs.extend(v for k, v in sorted(g_envs, reverse=True))
 
 results = []
+
 try:
-    with open(join(PROJECT_DIR, 'anaconda-project.yml'), 'r') as fp:
-        envs = yaml.safe_load(fp).get('env_specs')
-    if not envs or 'default' in envs:
-        results.append('default')
-    results.extend(e for e in envs if e != 'default')
-except Exception as exc:
+    from anaconda_project.project_info import publication_info
+    spec = publication_info(PROJECT_DIR)
+    results.extend(spec['env_specs'])
+except ImportError:
     results.append('@ERROR@')
+
 desired_env = results[0]
 results = [r for r in results if r in r_envs]
 if results:
