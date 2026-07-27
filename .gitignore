@@ -21,3 +21,7 @@ heartbeat.
 !/data/
 /user
 !/user/
+
+node_modules/
+package-lock.json
+package.json
