@@ -16,6 +16,13 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
+    - name: Verify RStudio download
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y rpm2cpio cpio
+        unset TOOL_PROJECT_URL RSTUDIO_VERSION
+        bash ./download_rstudio.sh
+        rm -f rs-rhel8-x86_64.rpm rs-rhel9-x86_64.rpm rs-rhel9-aarch64.rpm
     - name: Build the archive
       run: |
         source $CONDA/bin/activate
