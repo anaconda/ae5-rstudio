@@ -7,7 +7,10 @@ echo "+------------------------+"
 [ $RSTUDIO_VERSION ] || RSTUDIO_VERSION=2026.08.1-195
 echo "- Target version: ${RSTUDIO_VERSION}"
 
-if [[ -n "$TOOL_PROJECT_URL" && -d data ]]; then
+if [ -n "${DOWNLOAD_DIR:-}" ]; then
+    echo "- Downloading into ${DOWNLOAD_DIR}"
+    fdir=${DOWNLOAD_DIR}/
+elif [[ -n "$TOOL_PROJECT_URL" && -d data ]]; then
    echo "- Downloading into the data directory"
    fdir=data/
 fi

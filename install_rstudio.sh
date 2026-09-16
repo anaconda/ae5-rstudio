@@ -67,7 +67,8 @@ else
 fi
 
 dname=rs-rhel${v}-${arch}.rpm
-if [[ ! -f $dname && ! -f data/$dname ]]; then
+DOWNLOAD_DIR=${DOWNLOAD_DIR:-./data}
+if [[ ! -f $dname && ! -f ${DOWNLOAD_DIR}/$dname ]]; then
     echo "ERROR: the required RStudio package is missing:"
     echo "- $dname"
     echo "Please follow the directions in README.md to"
@@ -87,7 +88,7 @@ if [ ! -z "$missing" ]; then
     exit -1
 fi
 
-[ -f $dname ] || dname=data/$dname
+[ -f $dname ] || dname=${DOWNLOAD_DIR}/$dname
 echo "- Verifying $dname"
 if ! rpm2cpio $dname >/dev/null; then
     echo "- ERROR: $dname is not a valid RPM package. Please remove this file and re-download it."
