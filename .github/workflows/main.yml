@@ -16,6 +16,10 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
+    - name: Check RStudio version bump (dry-run)
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: bash ./version-bump.sh --dry-run
     - name: Verify RStudio download
       run: |
         sudo apt-get update
