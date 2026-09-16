@@ -41,9 +41,10 @@ fi
 
 # Query GitHub for the latest production container version
 if [ -z "${IMAGE_VER:-}" ]; then
-	IMAGE_VER=$(gh api repos/anaconda/anaconda-platform/contents/Makefile.images | \
-		jq -r '.content' | base64 -d | \
-		sed -nE 's@^tag_ae_editor_base *:= *([^$ ]+).*@\1@p' || :)
+	# This is a bit of a hack 
+	IMAGE_VER=$(curl -s -u "_json_key:$AE_GCR_KEY" \
+		https://gcr.io/v2/continuum-compute/ae-editor-base/tags/list | \
+		jq -r '.tags[]' | tail -1 | sed -E 's@-(arm64|amd64)@@')
 	if [ -z "$IMAGE_VER" ]; then
 		echo "Could not determine ae-editor-base image version" 1>&2
 		exit -1

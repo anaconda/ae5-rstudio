@@ -50,7 +50,7 @@ jobs:
         aws s3 cp README.pdf $URL/rstudio-install$SUFFIX.pdf $ARGS
         aws s3 cp TOOLS.pdf $URL/tools-volume$SUFFIX.pdf $ARGS
     - name: Retain installer for suffix-free publish
-      if: startsWith(github.ref, 'refs/tags/')
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
       with:
         name: installer-release
@@ -86,7 +86,7 @@ jobs:
     - name: Run RStudio bringup test
       id: bringup
       env:
-        GH_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+        AE_GCR_KEY: ${{ secrets.AE_GCR_KEY }}
       run: bash ./ci_test.sh
     - name: Upload screenshot artifact
       if: always() && hashFiles('test_screenshot.png') != ''
@@ -148,7 +148,7 @@ jobs:
         fi
 
   publish-latest:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
     needs: [project, bringup]
     runs-on: ubuntu-latest
     steps:
@@ -167,3 +167,8 @@ jobs:
         aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer.tar.bz2 $ARGS
         aws s3 cp README.pdf $URL/rstudio-install.pdf $ARGS
         aws s3 cp TOOLS.pdf $URL/tools-volume.pdf $ARGS
+        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer-$GITHUB_REF_NAME.tar.bz2 $ARGS
+          aws s3 cp README.pdf $URL/rstudio-install-$GITHUB_REF_NAME.pdf $ARGS
+          aws s3 cp TOOLS.pdf $URL/tools-volume-$GITHUB_REF_NAME.pdf $ARGS
+        fi
