@@ -7,8 +7,7 @@ async function runScript() {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   await page.goto('http://localhost:8086');
-  await page.waitForTimeout(5000);
-  await expect(page.getByText('R is free software and comes with ABSOLUTELY NO WARRANTY.')).toBeVisible();
+  await expect(page.getByText('R is free software and comes with ABSOLUTELY NO WARRANTY.')).toBeVisible({ timeout: 60000 });
   await expect(page.getByText('Active conda environment: anaconda50_r')).toBeVisible();
   await page.locator('*:focus').pressSequentially('RStudio.Version()$version\nR.home()\n');
   await expect(page.getByText(expected_version).last()).toBeVisible();
@@ -17,4 +16,7 @@ async function runScript() {
   await browser.close();
 }
 
-runScript();
+runScript().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

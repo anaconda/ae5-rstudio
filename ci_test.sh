@@ -37,7 +37,7 @@ fi
 if [ -z "${IMAGE_VER:-}" ]; then
 	IMAGE_VER=$(gh api repos/anaconda/anaconda-platform/contents/Makefile.images | \
 		jq -r '.content' | base64 -d | \
-		sed -nE 's@tag_ae_editor_base *:= *([^ $]*).*@\1@p' || :)
+		sed -nE 's@^tag_ae_editor_base *:= *([^$ ]+).*@\1@p' || :)
 	if [ -z "$IMAGE_VER" ]; then
 		echo "Could not determine ae-editor-base image version" 1>&2
 		exit -1
@@ -45,6 +45,10 @@ if [ -z "${IMAGE_VER:-}" ]; then
 fi
 image_name=gcr.io/continuum-compute/ae-editor-base:${IMAGE_VER} 
 echo "Using $image_name"
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+	echo "image_ver=${IMAGE_VER}" >> "$GITHUB_OUTPUT"
+	echo "expected_version=${expected_version}" >> "$GITHUB_OUTPUT"
+fi
 
 # Launch the container in detach mode but give it a name we can track
 container_cleanup() { 
@@ -82,5 +86,6 @@ echo "RStudio is up and running"
 if node capture.mjs "$expected_version" "$expected_env"; then
 	echo "RStudio succeeded; screenshot generated"
 else
-	echo "Unexpected issue obtaining screenshot"
+	echo "Unexpected issue obtaining screenshot" 1>&2
+	exit 1
 fi
