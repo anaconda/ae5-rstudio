@@ -15,3 +15,6 @@ __pycache__/
 
 # GitHib actions
 .github/
+
+# RStudio RPMs (downloaded by CI / airgap; never ship in the installer)
+/rs-rhel*.rpm
