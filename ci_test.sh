@@ -50,7 +50,6 @@ if [ -z "${IMAGE_VER:-}" ]; then
 	fi
 fi
 image_name=gcr.io/continuum-compute/ae-editor-base:${IMAGE_VER} 
-echo "Using $image_name"
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
 	echo "image_ver=${IMAGE_VER}" >> "$GITHUB_OUTPUT"
 	echo "expected_version=${expected_version}" >> "$GITHUB_OUTPUT"
@@ -62,13 +61,16 @@ container_cleanup() {
 	docker rm "$container_name" >/dev/null 2>&1 || :
 }
 trap container_cleanup EXIT
-cmd=(docker run --detach --name "$container_name" \
-	 --publish 8086:8086 --env TOOL_OWNER=@ --env TOOL_PACKAGE=bash \
-	 --tmpfs /tools:exec -v "${SCRIPT_DIR}:/opt/continuum/installer" \
-	 $image_name bash /opt/continuum/installer/${SCRIPT_NAME})
+cmd=(docker pull "$image_name")
 echo "> ${cmd[*]}"
 "${cmd[@]}" >/dev/null
-docker ps | grep -E "${container_name}$"
+cmd=(docker run --detach --name "$container_name" \
+	 --publish 8086:8086 --env TOOL_OWNER=$USER --env TOOL_PACKAGE=bash \
+	 --tmpfs /tools:exec -v "${SCRIPT_DIR}:/testing:ro" \
+	 "$image_name" bash /testing/${SCRIPT_NAME})
+echo "> ${cmd[*]}"
+"${cmd[@]}" >/dev/null
+docker ps --all --no-trunc | grep -E "${container_name}$" || :
 echo ""
 
 # Scan the logs of the container until 1) the container dies;
