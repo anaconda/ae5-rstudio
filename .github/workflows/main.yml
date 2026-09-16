@@ -98,6 +98,7 @@ jobs:
       if: always() && github.event_name == 'pull_request'
       env:
         GH_TOKEN: ${{ github.token }}
+        UPLOAD_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         REPO_ID: ${{ github.repository_id }}
         IMAGE_VER: ${{ steps.bringup.outputs.image_ver }}
@@ -107,18 +108,17 @@ jobs:
         set -euo pipefail
         img_md=""
         if [ -f test_screenshot.png ]; then
-          upload_json=$(curl -sS -X POST \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
+          upload_json=$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${UPLOAD_TOKEN}" \
             -H "Accept: application/json" \
             --data-binary @test_screenshot.png \
-            "https://uploads.github.com/user-attachments/assets?name=test_screenshot.png&content_type=image/png&repository_id=${REPO_ID}" \
-            || true)
-          asset_url=$(printf '%s' "$upload_json" | jq -r '.href // .url // empty' 2>/dev/null || true)
-          if [ -n "$asset_url" ]; then
-            img_md="![RStudio bringup](${asset_url})"
-          else
-            echo "Screenshot upload failed: ${upload_json}" >&2
+            "https://uploads.github.com/user-attachments/assets?name=test_screenshot.png&content_type=image/png&repository_id=${REPO_ID}")
+          asset_url=$(printf '%s' "$upload_json" | jq -r '.href // .url')
+          if [ -z "$asset_url" ] || [ "$asset_url" = "null" ]; then
+            echo "Screenshot upload returned no URL: ${upload_json}" >&2
+            exit 1
           fi
+          img_md="![RStudio bringup](${asset_url})"
         fi
         body_file=$(mktemp)
         {
@@ -129,8 +129,6 @@ jobs:
           echo
           if [ -n "$img_md" ]; then
             echo "$img_md"
-          elif [ -f test_screenshot.png ]; then
-            echo "Screenshot captured but could not attach inline. See the [run artifact](${RUN_URL})."
           else
             echo 'Bringup **failed** before a screenshot was captured.'
           fi
