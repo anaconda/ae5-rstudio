@@ -28,7 +28,7 @@ if [ -d /opt/continuum/anaconda/conda-meta ]; then
 fi
 
 # Only one container can run at a time
-if [ -n "$(docker image ls "$container_name" -q)" ]; then
+if [ -n "$(docker ps -aq -f name="^${container_name}$")" ]; then
 	echo "Container $container_name is already running" 1>&2
 	exit 1
 fi
@@ -58,7 +58,7 @@ container_cleanup() {
 trap container_cleanup EXIT
 echo "Launching container..."
 cmd=(docker run --detach --name "$container_name" \
-	 --publish 8086:8086 --env TOOL_OWNER=@,TOOL_PACKAGE=bash \
+	 --publish 8086:8086 --env TOOL_OWNER=@ --env TOOL_PACKAGE=bash \
 	 --tmpfs /tools:exec -v "${SCRIPT_DIR}:/opt/continuum/installer" \
 	 $image_name bash /opt/continuum/installer/${SCRIPT_NAME})
 echo "> ${cmd[*]}"
