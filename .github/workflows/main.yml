@@ -133,13 +133,13 @@ jobs:
             echo 'Bringup **failed** before a screenshot was captured.'
           fi
         } > "$body_file"
-        old_id=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
+        old_ids=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
           --jq '.[] | select(.body | contains("<!-- rstudio-bringup-screenshot -->")) | .id' \
-          | tail -n1 || true)
+          || true)
         gh issue comment "$PR_NUMBER" --body-file "$body_file"
-        if [ -n "${old_id:-}" ]; then
-          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/comments/${old_id}"
-        fi
+        for id in $old_ids; do
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" || true
+        done
 
   publish-latest:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
