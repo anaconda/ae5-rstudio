@@ -10,6 +10,7 @@ async function runScript() {
   await expect(page.getByText('R is free software and comes with ABSOLUTELY NO WARRANTY.')).toBeVisible({ timeout: 60000 });
   await expect(page.getByText('Active conda environment: anaconda50_r')).toBeVisible();
   await page.locator('*:focus').pressSequentially('RStudio.Version()$version\nR.home()\n');
+  await page.locator('*:focus').pressSequentially('pie(c(1,3,6,4,9),labels=c("a","b","c","d","e"))\n');
   await expect(page.getByText(expected_version).last()).toBeVisible();
   await expect(page.getByText(expected_env).last()).toBeVisible();
   await page.screenshot({path: './test_screenshot.png', scale: 'css', type: 'png'});
