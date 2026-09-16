@@ -147,8 +147,9 @@ fi
 
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-git checkout -B bot/rstudio-version origin/master
-sed -i -E 's/(\|\| RSTUDIO_VERSION=)[0-9]{4}\.[0-9]{2}\.[0-9]+-[0-9]+/\1'"$upstream"'/' download_rstudio.sh
+git checkout --no-track -B bot/rstudio-version origin/master
+sed -i.bak -e "s/|| RSTUDIO_VERSION=[0-9]\{4\}\.[0-9]\{2\}\.[0-9][0-9]*-[0-9][0-9]*/|| RSTUDIO_VERSION=${upstream}/" download_rstudio.sh
+rm -f download_rstudio.sh.bak
 new_ver=$(extract_version < download_rstudio.sh)
 if [ "$new_ver" != "$upstream" ]; then
     echo "Failed to bump RSTUDIO_VERSION to $upstream (got '${new_ver:-empty}')" >&2
