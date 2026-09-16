@@ -105,14 +105,20 @@ jobs:
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       run: |
         set -euo pipefail
-        gh issue comment "$PR_NUMBER" --delete-last --yes || true
         img_md=""
         if [ -f test_screenshot.png ]; then
-          asset_url=$(gh api --method POST \
+          upload_json=$(curl -sS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/json" \
+            --data-binary @test_screenshot.png \
             "https://uploads.github.com/user-attachments/assets?name=test_screenshot.png&content_type=image/png&repository_id=${REPO_ID}" \
-            --input test_screenshot.png \
-            --jq '.href // .url')
-          img_md="![RStudio bringup](${asset_url})"
+            || true)
+          asset_url=$(printf '%s' "$upload_json" | jq -r '.href // .url // empty' 2>/dev/null || true)
+          if [ -n "$asset_url" ]; then
+            img_md="![RStudio bringup](${asset_url})"
+          else
+            echo "Screenshot upload failed: ${upload_json}" >&2
+          fi
         fi
         body_file=$(mktemp)
         {
@@ -123,11 +129,19 @@ jobs:
           echo
           if [ -n "$img_md" ]; then
             echo "$img_md"
+          elif [ -f test_screenshot.png ]; then
+            echo "Screenshot captured but could not attach inline. See the [run artifact](${RUN_URL})."
           else
             echo 'Bringup **failed** before a screenshot was captured.'
           fi
         } > "$body_file"
+        old_id=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
+          --jq '.[] | select(.body | contains("<!-- rstudio-bringup-screenshot -->")) | .id' \
+          | tail -n1 || true)
         gh issue comment "$PR_NUMBER" --body-file "$body_file"
+        if [ -n "${old_id:-}" ]; then
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/comments/${old_id}"
+        fi
 
   publish-latest:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
