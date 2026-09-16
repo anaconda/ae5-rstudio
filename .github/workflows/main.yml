@@ -68,7 +68,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
-      contents: write
       pull-requests: write
     steps:
     - name: Retrieve the source code
@@ -100,69 +99,40 @@ jobs:
       with:
         name: rstudio-bringup-screenshot
         path: test_screenshot.png
-    - name: Push screenshot branch
-      if: always() && github.event_name == 'pull_request' && hashFiles('test_screenshot.png') != ''
+    - name: Post screenshot comment
+      if: always() && github.event_name == 'pull_request'
       env:
         GH_TOKEN: ${{ github.token }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
-        RUN_ID: ${{ github.run_id }}
-      run: |
-        set -euo pipefail
-        branch="ci-screenshots/pr-${PR_NUMBER}"
-        workdir=$(mktemp -d)
-        cp test_screenshot.png "$workdir/"
-        cd "$workdir"
-        git init
-        git checkout -b "$branch"
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add test_screenshot.png
-        git commit -m "RStudio bringup screenshot PR ${PR_NUMBER} run ${RUN_ID}"
-        git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${branch}"
-    - name: Post or update screenshot comment
-      if: always() && github.event_name == 'pull_request'
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
-      env:
+        REPO_ID: ${{ github.repository_id }}
         IMAGE_VER: ${{ steps.bringup.outputs.image_ver }}
         RSTUDIO_VER: ${{ steps.bringup.outputs.expected_version }}
-      with:
-        script: |
-          const fs = require('fs');
-          const marker = '<!-- rstudio-bringup-screenshot -->';
-          const pr = context.payload.pull_request.number;
-          const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-          const imageVer = process.env.IMAGE_VER || 'unknown';
-          const rstudioVer = process.env.RSTUDIO_VER || 'unknown';
-          const pngExists = fs.existsSync('test_screenshot.png');
-          const meta = `Image: \`ae-editor-base:${imageVer}\` · RStudio \`${rstudioVer}\` · [run](${runUrl})`;
-          let body;
-          if (pngExists) {
-            const img = `https://github.com/${context.repo.owner}/${context.repo.repo}/blob/ci-screenshots/pr-${pr}/test_screenshot.png?raw=true&t=${context.runId}`;
-            body = `${marker}\n## RStudio bringup\n\n${meta}\n\n![RStudio bringup](${img})\n`;
-          } else {
-            body = `${marker}\n## RStudio bringup\n\nBringup **failed** before a screenshot was captured.\n\n${meta}\n`;
-          }
-          const comments = await github.paginate(github.rest.issues.listComments, {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: pr,
-          });
-          const existing = comments.find((c) => c.body && c.body.includes(marker));
-          if (existing) {
-            await github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: existing.id,
-              body,
-            });
-          } else {
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: pr,
-              body,
-            });
-          }
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        gh issue comment "$PR_NUMBER" --delete-last --yes || true
+        img_md=""
+        if [ -f test_screenshot.png ]; then
+          asset_url=$(gh api --method POST \
+            "https://uploads.github.com/user-attachments/assets?name=test_screenshot.png&content_type=image/png&repository_id=${REPO_ID}" \
+            --input test_screenshot.png \
+            --jq '.href // .url')
+          img_md="![RStudio bringup](${asset_url})"
+        fi
+        body_file=$(mktemp)
+        {
+          echo '<!-- rstudio-bringup-screenshot -->'
+          echo '## RStudio bringup'
+          echo
+          echo "Image: \`ae-editor-base:${IMAGE_VER:-unknown}\` · RStudio \`${RSTUDIO_VER:-unknown}\` · [run](${RUN_URL})"
+          echo
+          if [ -n "$img_md" ]; then
+            echo "$img_md"
+          else
+            echo 'Bringup **failed** before a screenshot was captured.'
+          fi
+        } > "$body_file"
+        gh issue comment "$PR_NUMBER" --body-file "$body_file"
 
   publish-latest:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
