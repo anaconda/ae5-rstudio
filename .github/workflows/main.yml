@@ -33,27 +33,22 @@ jobs:
         conda install -y ae-dev::anaconda-project
         anaconda-project archive rstudio-installer.tar.bz2
     - name: Upload archive
+      if: github.ref_type != 'tag'
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{secrets.AWS_DEFAULT_REGION}}
       run: |
-        SUFFFIX2="no"
-        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-          SUFFIX=-$GITHUB_REF_NAME
-        elif [ -z "$GITHUB_HEAD_REF" ]; then
+        if [ -z "$GITHUB_HEAD_REF" ]; then
           SUFFIX=-dev
         else
           SUFFIX=-test
         fi
         URL=s3://airgap-svc/misc
         ARGS="--acl public-read --region $AWS_DEFAULT_REGION"
-        for sfx in "$SUFFIX" "$SUFFIX2"; do
-          aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer$sfx.tar.bz2 $ARGS
-          aws s3 cp README.pdf $URL/rstudio-install$sfx.pdf $ARGS
-          aws s3 cp TOOLS.pdf $URL/tools-volume$sfx.pdf $ARGS
-          if [ "$SUFFIX2" = "no" ]; then break; fi
-        done
+        aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer$SUFFIX.tar.bz2 $ARGS
+        aws s3 cp README.pdf $URL/rstudio-install$SUFFIX.pdf $ARGS
+        aws s3 cp TOOLS.pdf $URL/tools-volume$SUFFIX.pdf $ARGS
     - name: Retain installer for suffix-free publish
       if: startsWith(github.ref, 'refs/tags/')
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
