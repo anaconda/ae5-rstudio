@@ -5,7 +5,8 @@ SCRIPT_NAME=$(basename ${BASH_SOURCE[0]})
 SCRIPT_DIR=$(dirname ${BASH_SOURCE[0]})
 cd ${SCRIPT_DIR}
 
-expected_version=$(sed -nE 's@-@.@g;s@[.]0+@.@g;s@.*RSTUDIO_VERSION=@@p' download_rstudio.sh)
+# We need to trim leading zeros from each version component without removing zero itself
+expected_version=$(sed -nE 's@-@.@g;s@[.]0+([1-9])@.\1@g;s@.*RSTUDIO_VERSION=@@p' download_rstudio.sh)
 expected_env=/opt/continuum/anaconda/envs/anaconda50_r
 container_name=ae5-rstudio-test
 
