@@ -18,3 +18,8 @@ __pycache__/
 
 # RStudio RPMs (downloaded by CI / airgap; never ship in the installer)
 /rs-rhel*.rpm
+
+# CI bringup harness (not part of the installer)
+ci_test.sh
+capture.mjs
+test_screenshot.png

@@ -33,25 +33,142 @@ jobs:
         conda install -y ae-dev::anaconda-project
         anaconda-project archive rstudio-installer.tar.bz2
     - name: Upload archive
+      if: github.ref_type != 'tag'
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{secrets.AWS_DEFAULT_REGION}}
       run: |
-        SUFFFIX2="no"
-        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-          SUFFIX=-$GITHUB_REF_NAME
-          SUFFIX2=""
-        elif [ -z "$GITHUB_HEAD_REF" ]; then
+        if [ -z "$GITHUB_HEAD_REF" ]; then
           SUFFIX=-dev
         else
           SUFFIX=-test
         fi
         URL=s3://airgap-svc/misc
         ARGS="--acl public-read --region $AWS_DEFAULT_REGION"
-        for sfx in "$SUFFIX" "$SUFFIX2"; do
-          aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer$sfx.tar.bz2 $ARGS
-          aws s3 cp README.pdf $URL/rstudio-install$sfx.pdf $ARGS
-          aws s3 cp TOOLS.pdf $URL/tools-volume$sfx.pdf $ARGS
-          if [ "$SUFFIX2" = "no" ]; then break; fi
+        aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer$SUFFIX.tar.bz2 $ARGS
+        aws s3 cp README.pdf $URL/rstudio-install$SUFFIX.pdf $ARGS
+        aws s3 cp TOOLS.pdf $URL/tools-volume$SUFFIX.pdf $ARGS
+    - name: Retain installer for suffix-free publish
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      with:
+        name: installer-release
+        path: |
+          rstudio-installer.tar.bz2
+          README.pdf
+          TOOLS.pdf
+
+  bringup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      pull-requests: write
+    steps:
+    - name: Retrieve the source code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Log in to gcr.io
+      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
+      with:
+        registry: gcr.io
+        username: _json_key
+        password: ${{ secrets.AE_GCR_KEY }}
+    - name: Set up Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+      with:
+        node-version: '22'
+    - name: Install Playwright
+      run: |
+        npm install @playwright/test@^1.63.0
+        npx playwright install --with-deps chromium
+    - name: Run RStudio bringup test
+      id: bringup
+      env:
+        AE_GCR_KEY: ${{ secrets.AE_GCR_KEY }}
+      run: bash ./ci_test.sh
+    - name: Upload screenshot artifact
+      if: always() && hashFiles('test_screenshot.png') != ''
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+      with:
+        name: rstudio-bringup-screenshot
+        path: test_screenshot.png
+    - name: Post screenshot comment
+      if: always() && github.event_name == 'pull_request'
+      env:
+        GH_TOKEN: ${{ github.token }}
+        UPLOAD_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO_ID: ${{ github.repository_id }}
+        IMAGE_VER: ${{ steps.bringup.outputs.image_ver }}
+        RSTUDIO_VER: ${{ steps.bringup.outputs.expected_version }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        img_md=""
+        if [ -f test_screenshot.png ]; then
+          upload_json=$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${UPLOAD_TOKEN}" \
+            -H "Accept: application/json" \
+            --data-binary @test_screenshot.png \
+            "https://uploads.github.com/user-attachments/assets?name=test_screenshot.png&content_type=image/png&repository_id=${REPO_ID}" \
+            || true)
+          asset_url=$(printf '%s' "$upload_json" | jq -r '.href // .url // empty' 2>/dev/null || true)
+          if [ -n "$asset_url" ]; then
+            img_md="![RStudio bringup](${asset_url})"
+          else
+            echo "Screenshot upload failed: ${upload_json}" >&2
+          fi
+        fi
+        body_file=$(mktemp)
+        {
+          echo '<!-- rstudio-bringup-screenshot -->'
+          echo '## RStudio bringup'
+          echo
+          echo "Image: \`ae-editor-base:${IMAGE_VER:-unknown}\` · RStudio \`${RSTUDIO_VER:-unknown}\` · [run](${RUN_URL})"
+          echo
+          if [ -n "$img_md" ]; then
+            echo "$img_md"
+          elif [ -f test_screenshot.png ]; then
+            echo "Screenshot captured but could not attach inline. See the [run artifact](${RUN_URL})."
+          else
+            echo 'Bringup **failed** before a screenshot was captured.'
+          fi
+        } > "$body_file"
+        old_ids=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
+          --jq '.[] | select(.body | contains("<!-- rstudio-bringup-screenshot -->")) | .id' \
+          || true)
+        gh issue comment "$PR_NUMBER" --body-file "$body_file"
+        for id in $old_ids; do
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" || true
         done
+        if [ -f test_screenshot.png ] && [ -z "$img_md" ]; then
+          exit 1
+        fi
+
+  publish-latest:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+    needs: [project, bringup]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download installer archive
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+      with:
+        name: installer-release
+    - name: Publish suffix-free installer
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{secrets.AWS_DEFAULT_REGION}}
+      run: |
+        URL=s3://airgap-svc/misc
+        ARGS="--acl public-read --region $AWS_DEFAULT_REGION"
+        aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer.tar.bz2 $ARGS
+        aws s3 cp README.pdf $URL/rstudio-install.pdf $ARGS
+        aws s3 cp TOOLS.pdf $URL/tools-volume.pdf $ARGS
+        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer-$GITHUB_REF_NAME.tar.bz2 $ARGS
+          aws s3 cp README.pdf $URL/rstudio-install-$GITHUB_REF_NAME.pdf $ARGS
+          aws s3 cp TOOLS.pdf $URL/tools-volume-$GITHUB_REF_NAME.pdf $ARGS
+        fi
