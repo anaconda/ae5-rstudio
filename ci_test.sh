@@ -44,7 +44,7 @@ if [ -z "${IMAGE_VER:-}" ]; then
 	# This is a bit of a hack 
 	IMAGE_VER=$(curl -s -u "_json_key:$AE_GCR_KEY" \
 		https://gcr.io/v2/continuum-compute/ae-editor-base/tags/list | \
-		jq -r '.tags[]' | tail -1 | sed -E 's@-(arm64|amd64)@@')
+		jq -r '.tags[]' | tail -1 | sed -E 's@-(arm64|amd64)@@' || :)
 	if [ -z "$IMAGE_VER" ]; then
 		echo "Could not determine ae-editor-base image version" 1>&2
 		exit -1
