@@ -9,56 +9,6 @@ on:
     branches:
       - master
 jobs:
-  project:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Retrieve the source code
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        fetch-depth: 0
-    - name: Check RStudio version bump (dry-run)
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: bash ./version-bump.sh --dry-run
-    - name: Verify RStudio download
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y rpm2cpio cpio
-        unset TOOL_PROJECT_URL RSTUDIO_VERSION
-        bash ./download_rstudio.sh
-        rm -f rs-rhel8-x86_64.rpm rs-rhel9-x86_64.rpm rs-rhel9-aarch64.rpm
-    - name: Build the archive
-      run: |
-        source $CONDA/bin/activate
-        conda install -y ae-dev::anaconda-project
-        anaconda-project archive rstudio-installer.tar.bz2
-    - name: Upload archive
-      if: github.ref_type != 'tag'
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: ${{secrets.AWS_DEFAULT_REGION}}
-      run: |
-        if [ -z "$GITHUB_HEAD_REF" ]; then
-          SUFFIX=-dev
-        else
-          SUFFIX=-test
-        fi
-        URL=s3://airgap-svc/misc
-        ARGS="--acl public-read --region $AWS_DEFAULT_REGION"
-        aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer$SUFFIX.tar.bz2 $ARGS
-        aws s3 cp README.pdf $URL/rstudio-install$SUFFIX.pdf $ARGS
-        aws s3 cp TOOLS.pdf $URL/tools-volume$SUFFIX.pdf $ARGS
-    - name: Retain installer for suffix-free publish
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
-      with:
-        name: installer-release
-        path: |
-          rstudio-installer.tar.bz2
-          README.pdf
-          TOOLS.pdf
-
   bringup:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -68,7 +18,7 @@ jobs:
     - name: Retrieve the source code
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        persist-credentials: false
+        fetch-depth: 0
     - name: Log in to gcr.io
       uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
       with:
@@ -147,28 +97,60 @@ jobs:
           exit 1
         fi
 
-  publish-latest:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
-    needs: [project, bringup]
+  publish:
+    needs: [bringup]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-    - name: Download installer archive
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+    - name: Retrieve the tested source code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        name: installer-release
-    - name: Publish suffix-free installer
+        fetch-depth: 0
+    - name: Build the archive
+      run: |
+        source "$CONDA/bin/activate"
+        conda install -y ae-dev::anaconda-project
+        anaconda-project archive rstudio-installer.tar.bz2
+    - name: Determine the sufixes and upload the content
       env:
+        BEFORE_SHA: ${{ github.event.before }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{secrets.AWS_DEFAULT_REGION}}
       run: |
-        URL=s3://airgap-svc/misc
-        ARGS="--acl public-read --region $AWS_DEFAULT_REGION"
-        aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer.tar.bz2 $ARGS
-        aws s3 cp README.pdf $URL/rstudio-install.pdf $ARGS
-        aws s3 cp TOOLS.pdf $URL/tools-volume.pdf $ARGS
-        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-          aws s3 cp rstudio-installer.tar.bz2 $URL/rstudio-installer-$GITHUB_REF_NAME.tar.bz2 $ARGS
-          aws s3 cp README.pdf $URL/rstudio-install-$GITHUB_REF_NAME.pdf $ARGS
-          aws s3 cp TOOLS.pdf $URL/tools-volume-$GITHUB_REF_NAME.pdf $ARGS
+        set -euo pipefail
+        suffixes=()
+        create_tag=""
+        if [[ "$GITHUB_REF_TYPE" = tag ]]; then
+          echo "Manual tag event; just adding the tagged release"
+          suffixes+=("-$GITHUB_REF_NAME")
+        elif [[ "$GITHUB_EVENT_NAME" = push && "$GITHUB_REF" = "refs/heads/master" ]]; then
+          echo "PR merged to main; updating untagged and -latest"
+          suffixes+=("" "-latest")
+          current="$(sed -nE 's/^.*RSTUDIO_VERSION=//p' download_rstudio.sh)"
+          previous="$(git show "$BEFORE_SHA":download_rstudio.sh | sed -nE 's/^.*RSTUDIO_VERSION=//p')"
+          if [ "$current" != "$previous" ]; then
+            create_tag="$(git show -s --format=%cI | sed 's@T.*@@;s@-@@g')"
+            echo "RStudio version update detected: $previous -> $current"
+            echo "Also auto-generating new tag: $create_tag"
+            suffixes+=(-"$create_tag")
+          fi
+        else
+          echo "Uploading a development build only"
+          suffixes+=("-dev")
+        fi
+        for suffix in "${suffixes[@]}"; do
+          for fpair in rstudio-installer.tar.bz2 README.pdf/rstudio-install.pdf TOOLS.pdf/tools-volume.pdf; do
+            fname="${fpair%/*}"
+            dname="$(echo "${fpair#*/}" | sed -E "s@.(tar.bz2|pdf)\$@${suffix}.\1@")"
+            echo "$fname -> s3://airgap-svc/misc/$dname"
+            aws s3 cp --quiet "$fname" "s3://airgap-svc/misc/$dname" --acl public-read --region "$AWS_DEFAULT_REGION"
+          done
+        done
+        if [ -n "$create_tag" ]; then
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$create_tag" -m release
+          git push origin "refs/tags/$create_tag" --force
         fi
